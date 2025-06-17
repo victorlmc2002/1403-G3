@@ -17,13 +17,9 @@ BLACK = (0, 0, 0)
 SCALE_FACTOR = 10 
 
 # Carrega a spritesheet
-try:
-    spritesheet = pygame.image.load('assets/sprites/player.png').convert_alpha()
-except:
-    print("Erro ao carregar a spritesheet!")
-    pygame.quit()
-    sys.exit()
-
+spritesheet = pygame.image.load('assets/sprites/player.png')
+heart = pygame.image.load('assets/sprites/heart.png')
+heart = pygame.transform.scale(heart, (64*3, 64*3))  # Escala o coração para um tamanho adequado
 # Configurações da spritesheet (ajuste conforme sua imagem)
 frame_width = 32  # Largura original de cada frame
 frame_height = 32  # Altura original de cada frame
@@ -102,6 +98,7 @@ facing = 'direita'
 
 # Loop principal do jogo
 running = True
+vidas = 3  # Variável para o número de vidas
 while running:
     # Limpa a tela
     screen.fill(BLACK)
@@ -113,6 +110,11 @@ while running:
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not is_attacking:
             is_attacking = True
             attack_frame = 0
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_q:
+                vidas -= 1
+                if vidas <= 0:
+                    running = False
     
     # Movimento com WASD (desativado durante o ataque)
     keys = pygame.key.get_pressed()
@@ -135,6 +137,7 @@ while running:
             player_x += player_speed
             player_direction = 'direita'
     
+            
     # Atualiza a animação de movimento ou ataque
     if is_attacking:
         # Animação de ataque
@@ -161,7 +164,11 @@ while running:
         player_img = frames[player_direction][current_frame]
     
     screen.blit(player_img, (player_x, player_y))
-    
+    for i in range(vidas):
+        screen.blit(heart, (-40+i*75, -40))  # Desenha o coração no canto superior esquerdo
+
+    # Verifica se a tecla Q foi pressionada (apenas uma vez por pressionamento)
+
     # Mantém o jogador dentro da tela (agora usando as dimensões escaladas)
     player_x = max(0, min(player_x, SCREEN_WIDTH - scaled_width))
     player_y = max(0, min(player_y, SCREEN_HEIGHT - scaled_height))
