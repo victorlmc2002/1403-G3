@@ -34,14 +34,14 @@ scaled_height = int(frame_height * SCALE_FACTOR)  # Altura escalada
 cols = 10  # Número de colunas na spritesheet
 rows = 10  # Número de linhas na spritesheet
 
-missile_width = int(91/3)  # Largura do míssil
-missile_height = int(103/3)  # Altura do míssil
-cols_missile = 15  # Número de colunas do míssil
-rows_missile = 16  # Número de linhas do míssil
+missile_width = 256  # Largura do míssil
+missile_height = 128  # Altura do míssil
+cols_missile = 4  # Número de colunas do míssil
+rows_missile = 1  # Número de linhas do míssil
 frames_missile = {
     'missile_direita': [],
     'missile_esquerda': []
-                  } 
+}  # Dicionário para armazenar os frames do míssil
 
 # Prepara os frames do míssil
 for row in range(rows_missile):
@@ -53,8 +53,10 @@ for row in range(rows_missile):
             missile_height
         )
         frame = missile.subsurface(frame_rect)
-        if row == 12:
-            frames_missile['missile_direita'].append(frame)
+        scaled_missile = pygame.transform.scale(frame, (missile_width*0.5, missile_height*0.5))
+        frames_missile['missile_direita'].append(scaled_missile)
+            
+# Cria os frames para esquerda espelhando os da direita (já escalados)
 frames_missile['missile_esquerda'] = [pygame.transform.flip(frame, True, False) for frame in frames_missile['missile_direita']]
 
 # Prepara os frames da personagem
@@ -115,6 +117,12 @@ attack_frame = 0
 attack_animation_length = len(frames['attack_direita'])
 attack_cooldown = 0
 
+# Variáveis do míssil
+missiles = []  # Lista para armazenar os mísseis ativos
+missile_speed = 10
+missile_animation_speed = 0.2
+missile_frame = 0
+
 # Relógio para controlar o FPS
 clock = pygame.time.Clock()
 
@@ -135,6 +143,14 @@ while running:
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not is_attacking:
             is_attacking = True
             attack_frame = 0
+            # Adiciona um novo míssil quando o jogador ataca
+            missiles.append({
+                'x': player_x,
+                'y': player_y,
+                'direction': facing,
+                'frame': 0,
+                'animation_counter': 0
+            })
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_q:
                 vidas -= 1
@@ -162,7 +178,6 @@ while running:
             player_x += player_speed
             player_direction = 'direita'
     
-            
     # Atualiza a animação de movimento ou ataque
     if is_attacking:
         # Animação de ataque
@@ -180,6 +195,33 @@ while running:
             animation_counter = 0
             current_frame = (current_frame + 1) % len(frames[player_direction])
     
+    # Atualiza os mísseis
+    for missile_data in missiles[:]:
+        # Atualiza a posição do míssil
+        if missile_data['direction'] == 'direita':
+            missile_data['x'] += missile_speed
+        else:
+            missile_data['x'] -= missile_speed
+        
+        # Atualiza a animação do míssil
+        missile_data['animation_counter'] += missile_animation_speed
+        if missile_data['animation_counter'] >= 1:
+            missile_data['animation_counter'] = 0
+            missile_data['frame'] = (missile_data['frame'] + 1) % len(frames_missile['missile_direita'])
+        
+        # Remove mísseis que saíram da tela
+        if missile_data['x'] < -100 or missile_data['x'] > SCREEN_WIDTH + 100:
+            missiles.remove(missile_data)
+    
+    # Desenha os mísseis
+    for missile_data in missiles:
+        direction_key = f'missile_{missile_data["direction"]}'
+        missile_img = frames_missile[direction_key][missile_data['frame']]
+        if missile_data['direction'] == 'direita':
+            screen.blit(missile_img, (missile_data['x']+25, missile_data['y']+20))
+        else:
+            screen.blit(missile_img, (missile_data['x']-50, missile_data['y']+20))
+    
     # Desenha o personagem
     if is_attacking:
         # Escolhe a animação de ataque baseada na direção
@@ -189,10 +231,10 @@ while running:
         player_img = frames[player_direction][current_frame]
     
     screen.blit(player_img, (player_x, player_y))
+    
+    # Desenha as vidas
     for i in range(vidas):
         screen.blit(heart, (-40+i*75, -40))  # Desenha o coração no canto superior esquerdo
-
-    # Verifica se a tecla Q foi pressionada (apenas uma vez por pressionamento)
 
     # Mantém o jogador dentro da tela (agora usando as dimensões escaladas)
     player_x = max(0, min(player_x, SCREEN_WIDTH - scaled_width))
