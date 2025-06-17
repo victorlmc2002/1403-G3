@@ -1,6 +1,10 @@
 import pygame
 import sys
 
+# Função para escalar um frame
+def scale_frame(frame):
+    return pygame.transform.scale(frame, (scaled_width, scaled_height))
+
 # Inicializa o Pygame
 pygame.init()
 
@@ -14,21 +18,46 @@ pygame.display.set_caption("Movimento com Spritesheet - WASD")
 BLACK = (0, 0, 0)
 
 # Fator de escala para aumentar o personagem
-SCALE_FACTOR = 10 
+SCALE_FACTOR = 3 
 
-# Carrega a spritesheet
+# Carrega a spritesheets
 spritesheet = pygame.image.load('assets/sprites/player.png')
+missile = pygame.image.load('assets/sprites/missile.png')
 heart = pygame.image.load('assets/sprites/heart.png')
 heart = pygame.transform.scale(heart, (64*3, 64*3))  # Escala o coração para um tamanho adequado
-# Configurações da spritesheet (ajuste conforme sua imagem)
-frame_width = 32  # Largura original de cada frame
-frame_height = 32  # Altura original de cada frame
+
+# Configurações da spritesheet 
+frame_width = 32  # Largura da personagem
+frame_height = 32  # Altura da personagem
 scaled_width = int(frame_width * SCALE_FACTOR)  # Largura escalada
 scaled_height = int(frame_height * SCALE_FACTOR)  # Altura escalada
 cols = 10  # Número de colunas na spritesheet
 rows = 10  # Número de linhas na spritesheet
 
-# Prepara os frames de animação
+missile_width = int(91/3)  # Largura do míssil
+missile_height = int(103/3)  # Altura do míssil
+cols_missile = 15  # Número de colunas do míssil
+rows_missile = 16  # Número de linhas do míssil
+frames_missile = {
+    'missile_direita': [],
+    'missile_esquerda': []
+                  } 
+
+# Prepara os frames do míssil
+for row in range(rows_missile):
+    for col in range(cols_missile):
+        frame_rect = pygame.Rect(
+            col * missile_width,
+            row * missile_height,
+            missile_width,
+            missile_height
+        )
+        frame = missile.subsurface(frame_rect)
+        if row == 12:
+            frames_missile['missile_direita'].append(frame)
+frames_missile['missile_esquerda'] = [pygame.transform.flip(frame, True, False) for frame in frames_missile['missile_direita']]
+
+# Prepara os frames da personagem
 frames = {
     'down_direita': [],
     'down_esquerda': [], 
@@ -40,10 +69,6 @@ frames = {
     'attack_direita': [],
     'attack_esquerda': [],
 }
-
-# Função para escalar um frame
-def scale_frame(frame):
-    return pygame.transform.scale(frame, (scaled_width, scaled_height))
 
 # Divide a spritesheet em frames e aplica o scale
 for row in range(rows):
