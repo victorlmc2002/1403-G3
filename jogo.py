@@ -39,6 +39,43 @@ scaled_height = int(frame_height * SCALE_FACTOR)  # Altura escalada
 cols = 10  # Número de colunas na spritesheet
 rows = 10  # Número de linhas na spritesheet
 
+
+nivel = 1
+max_niveis = 3
+
+def setup_nivel(nivel):
+    enemy_rangers = []
+    if nivel == 1:
+        quantidade = 2
+        proj_speed = 10
+    elif nivel == 2:
+        quantidade = 3
+        proj_speed = 10
+    else:
+        quantidade = 4
+        proj_speed = 16  # aumenta a velocidade no nível 3
+
+    for i in range(quantidade):
+        x = SCREEN_WIDTH - scaled_width - 50
+        y = 100 + i * (scaled_height + 150)
+        rect = pygame.Rect(x, y, scaled_width, scaled_height)
+        enemy_rangers.append({
+            'x': x,
+            'y': y,
+            'alive': True,
+            'rect': rect,
+            'death_frame': 0,
+            'death_counter': 0,
+            'animation_counter': 0,
+            'current_frame': 0,
+            'shoot_timer': random.randint(60, 180)
+        })
+    return enemy_rangers, proj_speed
+
+# Inicializa o primeiro nível
+enemy_rangers, ranger_missile_speed = setup_nivel(nivel)
+ranger_missiles = []
+
 missile_width = 256  # Largura do míssil
 missile_height = 128  # Altura do míssil
 cols_missile = 4  # Número de colunas do míssil
@@ -47,7 +84,7 @@ frames_missile = {
     'missile_direita': [],
     'missile_esquerda': []
 }  # Dicionário para armazenar os frames do míssil
-ranger_missiles = []
+
 # Prepara os frames do míssil
 for row in range(rows_missile):
     for col in range(cols_missile):
@@ -150,24 +187,6 @@ clock = pygame.time.Clock()
 # Variável para controlar a direção do personagem
 facing = 'direita'
 
-# Lista de rangers inimigos
-enemy_rangers = []
-for i in range(3):
-    x = SCREEN_WIDTH - scaled_width - 50
-    y = 100 + i * (scaled_height + 150)
-    rect = pygame.Rect(x, y, scaled_width, scaled_height)
-    enemy_rangers.append({
-        'x': x,
-        'y': y,
-        'alive': True,
-        'rect': rect,
-        'death_frame': 0,
-        'death_counter': 0,
-        'animation_counter': 0,
-        'current_frame': 0,
-        'shoot_timer': random.randint(60, 180)  # 1 a 3 segundos (considerando 60 FPS)
-    })
-
 # Loop principal do jogo
 running = True
 vidas = 3  # Variável para o número de vidas
@@ -193,7 +212,7 @@ while running:
                 'animation_counter': 0,
                 'rect': missile_rect
             })
-    
+
     # Movimento com WASD (desativado durante o ataque)
     keys = pygame.key.get_pressed()
     
@@ -215,6 +234,9 @@ while running:
             player_x += player_speed
             player_direction = 'direita'
     
+    # Atualiza a posição do retângulo do jogador
+    player_rect = pygame.Rect(player_x, player_y, scaled_width, scaled_height)
+
     # Atualiza a animação de movimento ou ataque
     if is_attacking:
         # Animação de ataque
@@ -259,21 +281,14 @@ while running:
                 if ranger['death_counter'] >= 1:
                     ranger['death_counter'] = 0
                     ranger['death_frame'] += 1
+
     # Atualiza mísseis dos rangers
     for missile in ranger_missiles[:]:
-        missile['x'] -= missile_speed  # Move para a esquerda
+        missile['x'] -= ranger_missile_speed  # Usa a velocidade do nível
         missile['rect'].x = missile['x']
-        # Remove se sair da tela
         if missile['x'] < -missile_width:
             ranger_missiles.remove(missile)
 
-    # Verifica colisão dos projéteis dos rangers com o jogador
-    for missile in ranger_missiles[:]:
-        if missile['rect'].colliderect(player_rect):
-            vidas -= 1
-            ranger_missiles.remove(missile)
-            if vidas <= 0:
-                running = False
     # Atualiza os mísseis
     for missile_data in missiles[:]:
         # Atualiza a posição do míssil
@@ -328,7 +343,7 @@ while running:
     
     screen.blit(player_img, (player_x, player_y))
 
-    # Adiciona 3 sprites do ranger atacando para a esquerda no lado direito da tela
+    # Desenha os rangers inimigos
     for ranger in enemy_rangers:
         if ranger['alive']:
             ranger_attack_img = frames_ranger['attack_esquerda'][ranger['current_frame'] % len(frames_ranger['attack_esquerda'])]
@@ -338,13 +353,26 @@ while running:
             ranger_death_img = frames_ranger['morrer_esquerda'][ranger['death_frame']]
             screen.blit(ranger_death_img, (ranger['x'], ranger['y']))
             pygame.draw.rect(screen, (0, 0, 255), ranger['rect'], 2)
+        if not ranger['alive'] and ranger['death_frame'] >= len(frames_ranger['morrer_esquerda']):
+            ranger['rect'].width = 0
+            ranger['rect'].height = 0
 
-    if not ranger['alive'] and ranger['death_frame'] >= len(frames_ranger['morrer_esquerda']):
-        ranger['rect'].width = 0
-        ranger['rect'].height = 0
-    # Atualiza a posição do retângulo do jogador
-    player_rect = pygame.Rect(player_x, player_y, scaled_width, scaled_height)
-    
+    # Verifica colisão dos projéteis dos rangers com o jogador
+    for missile in ranger_missiles[:]:
+        if missile['rect'].colliderect(player_rect):
+            vidas -= 1
+            ranger_missiles.remove(missile)
+            if vidas <= 0:
+                running = False
+
+    # Verifica se todos os rangers morreram para avançar de nível
+    if all(not ranger['alive'] for ranger in enemy_rangers):  # Troque para esta condição se quiser avançar logo
+        if nivel < max_niveis:
+            nivel += 1
+            enemy_rangers, ranger_missile_speed = setup_nivel(nivel)
+            ranger_missiles.clear()
+        else:
+            running = False
     # Desenha as vidas
     for i in range(vidas):
         screen.blit(heart, (-40+i*75, -40))  # Desenha o coração no canto superior esquerdo
