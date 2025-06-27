@@ -99,7 +99,7 @@ for row in range(rows_missile):
             missile_height
         )
         frame = missile.subsurface(frame_rect)
-        scaled_missile = pygame.transform.scale(frame, (missile_width*0.5, missile_height*0.5))
+        scaled_missile = pygame.transform.scale(frame, (int(missile_width*0.5), int(missile_height*0.5)))
         frames_missile['missile_direita'].append(scaled_missile)
             
 # Cria os frames para esquerda espelhando os da direita (já escalados)
@@ -188,8 +188,7 @@ def tela_final(result):
 
 # Loop principal do jogo
 def main_game():
-    global nivel, max_niveis, scaled_width, scaled_height
-
+    DEBUG = True  # Flag para ativar/desativar o modo debug
     # Variáveis do jogo
     nivel = 1
     max_niveis = 3
@@ -215,9 +214,9 @@ def main_game():
     is_attacking = False
     attack_animation_speed = 0.2
     attack_frame = 0
-    attack_animation_length = len(frames['attack_direita'])
     missile_speed = 10
-    missile_animation_speed = 0.2
+    attack_animation_length = len(frames['attack_direita']) if len(frames['attack_direita']) > 0 else 1
+    missile_animation_speed = 0.2  # Define a velocidade da animação do míssil
     facing = 'direita'
     running = True
 
@@ -231,7 +230,7 @@ def main_game():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            elif event.type == pygame.KEYDOWN and event.key == pygame.K_e:#event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not is_attacking:
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_e:
                 is_attacking = True
                 attack_frame = 0
                 # Adiciona um novo míssil quando o jogador ataca
@@ -248,9 +247,8 @@ def main_game():
 
         # Movimento com WASD (desativado durante o ataque)
         keys = pygame.key.get_pressed()
-        
         if not is_attacking:
-            player_direction = f'stand_{facing}'  # Padrão quando não está se movendo
+            player_direction = f'stand_{facing}' # Padrão quando não está se movendo
             
             if keys[pygame.K_w]:  # Cima
                 player_y -= player_speed
@@ -261,12 +259,12 @@ def main_game():
             if keys[pygame.K_a]:  # Esquerda
                 facing = 'esquerda'
                 player_x -= player_speed
-                player_direction = 'esquerda'
+                player_direction = f'{facing}'
             if keys[pygame.K_d]:  # Direita
                 facing = 'direita'
                 player_x += player_speed
-                player_direction = 'direita'
-        
+                player_direction = f'{facing}'
+
         # Atualiza a posição do retângulo do jogador
         player_rect = pygame.Rect(player_x, player_y, scaled_width, scaled_height)
 
@@ -285,7 +283,8 @@ def main_game():
             animation_counter += animation_speed
             if animation_counter >= 1:
                 animation_counter = 0
-                current_frame = (current_frame + 1) % len(frames[player_direction])
+                if len(frames[player_direction]) > 0:
+                    current_frame = (current_frame + 1) % len(frames[player_direction])
         
         # Atualiza a animação dos rangers inimigos
         for ranger in enemy_rangers:
@@ -364,7 +363,8 @@ def main_game():
         # Desenha mísseis dos rangers
         for missile in ranger_missiles:
             screen.blit(ranger_projectile, (missile['x'], missile['y']))
-            pygame.draw.rect(screen, (255, 0, 0), missile['rect'], 2)  # Caixa de colisão
+            if DEBUG:
+                pygame.draw.rect(screen, (255, 0, 0), missile['rect'], 2)  # Caixa de colisão
 
         # Desenha o personagem
         if is_attacking:
@@ -376,19 +376,22 @@ def main_game():
         
         screen.blit(player_img, (player_x, player_y))
 
-        # Desenha os rangers inimigos
+        rangers_to_remove = []
         for ranger in enemy_rangers:
             if ranger['alive']:
                 ranger_attack_img = frames_ranger['attack_esquerda'][ranger['current_frame'] % len(frames_ranger['attack_esquerda'])]
                 screen.blit(ranger_attack_img, (ranger['x'], ranger['y']))
-                pygame.draw.rect(screen, (0, 0, 255), ranger['rect'], 2)
+                if DEBUG:
+                    pygame.draw.rect(screen, (0, 0, 255), ranger['rect'], 2)
             elif ranger['death_frame'] < len(frames_ranger['morrer_esquerda']):
                 ranger_death_img = frames_ranger['morrer_esquerda'][ranger['death_frame']]
                 screen.blit(ranger_death_img, (ranger['x'], ranger['y']))
-                pygame.draw.rect(screen, (0, 0, 255), ranger['rect'], 2)
+                if DEBUG:
+                    pygame.draw.rect(screen, (0, 0, 255), ranger['rect'], 2)
             if not ranger['alive'] and ranger['death_frame'] >= len(frames_ranger['morrer_esquerda']):
-                ranger['rect'].width = 0
-                ranger['rect'].height = 0
+                rangers_to_remove.append(ranger)
+        for ranger in rangers_to_remove:
+            enemy_rangers.remove(ranger)
 
         # Verifica colisão dos projéteis dos rangers com o jogador
         for missile in ranger_missiles[:]:
@@ -401,7 +404,7 @@ def main_game():
         # Verifica se todos os rangers morreram para ativar o cristal da fase
         if nivel == 1 and all(not ranger['alive'] for ranger in enemy_rangers) and not cristal_pego and not cristal_ativo:
             cristal_ativo = True
-            cristal_tipo = 'red'
+            cristal_tipo = 'blue'
         if nivel == 2 and all(not ranger['alive'] for ranger in enemy_rangers) and not cristal_pego and not cristal_ativo:
             cristal_ativo = True
             cristal_tipo = 'red'
@@ -442,14 +445,18 @@ def main_game():
             
         # Desenha as vidas
         for i in range(vidas):
-            screen.blit(heart, (-40+i*75, -40))  # Desenha o coração no canto superior esquerdo
+            screen.blit(heart, (10 + i*75, 10))  # Desenha o coração no canto superior esquerdo
 
         # Mantém o jogador dentro da tela (agora usando as dimensões escaladas)
         player_x = max(0, min(player_x, SCREEN_WIDTH - scaled_width))
         player_y = max(0, min(player_y, SCREEN_HEIGHT - scaled_height))
-        pygame.draw.rect(screen, (255, 0, 0), player_rect, 2)  # jogador
-        for missile in missiles:
-            pygame.draw.rect(screen, (0, 255, 0), missile['rect'], 2)  # mísseis
+
+
+        if DEBUG:
+            pygame.draw.rect(screen, (255, 0, 0), player_rect, 2)  # jogador
+            for missile in missiles:
+                pygame.draw.rect(screen, (0, 255, 0), missile['rect'], 2)  # mísseis
+
         # Atualiza a tela
         pygame.display.flip()
         
