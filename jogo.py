@@ -1,25 +1,90 @@
 import pygame
 import sys
 import random
+import time
+import os
+
+start_time = time.time()
+
+
+
+RANKING_FILE = "ranking.txt"
+def salvar_ranking(novo_tempo):
+    tempos = []
+    # Lê tempos existentes
+    if os.path.exists(RANKING_FILE):
+        with open(RANKING_FILE, "r") as f:
+            for line in f:
+                try:
+                    tempos.append(float(line.strip()))
+                except:
+                    pass
+
+    # Adiciona o novo tempo
+    tempos.append(novo_tempo)
+    tempos = sorted(tempos)
+    # Salva os 5 melhores tempos
+    with open(RANKING_FILE, "w") as f:
+        for tempo in tempos[:5]:
+            f.write(f"{tempo:.2f}\n")
+    return tempos[:5]
+
+def ler_ranking():
+    tempos = []
+    if os.path.exists(RANKING_FILE):
+        with open(RANKING_FILE, "r") as f:
+            for line in f:
+                try:
+                    tempos.append(float(line.strip()))
+                except:
+                    pass
+    return tempos
 
 # Função para escalar um frame
 def scale_frame(frame):
     return pygame.transform.scale(frame, (scaled_width, scaled_height))
+
+def colisao_tile(x, y, mapa, tiles_solidos):
+    col = x // TILE_SIZE
+    row = y // TILE_SIZE
+    if 0 <= row < len(mapa) and 0 <= col < len(mapa[0]):
+        return mapa[row][col] in tiles_solidos
+    return False
 
 # Inicializa o Pygame
 pygame.init()
 
 # Configurações da janela
 SCREEN_WIDTH = 1500
-SCREEN_HEIGHT = 900
+SCREEN_HEIGHT = 950
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Movimento com Spritesheet - WASD")
+
+TILE_SIZE = 64  # Tamanho do tile
+tileset = pygame.image.load('assets/sprites/tileset.png').convert_alpha()
+with open("map.txt", "r") as f:
+    mapa = [line.strip() for line in f.readlines()]
+
+tile_dict = {
+    'P': (4, 0),
+    'D': (4, 1),
+    'B': (1, 2),
+    'C': (3, 2),
+    'G': (4, 2),
+    'S': (5, 2),
+    'E': (1, 6),
+    'F': (2, 1),
+    'H': (2, 2),
+    'I': (2, 0),
+    'J': (1, 0),
+    'K': (1, 5),
+}
 
 # Cores
 BLACK = (0, 0, 0)
 
 # Fator de escala para aumentar o personagem
-SCALE_FACTOR = 3 
+SCALE_FACTOR = 2.5 
 
 # Carrega a spritesheets
 spritesheet = pygame.image.load('assets/sprites/player.png')
@@ -30,6 +95,8 @@ heart = pygame.transform.scale(heart, (64*3, 64*3))  # Escala o coração para u
 ranger_projectile = pygame.image.load('assets/sprites/arrow.png').convert_alpha()
 ranger_projectile = pygame.transform.rotate(ranger_projectile, 90)  # Gira 90 graus para a esquerda
 ranger_projectile = pygame.transform.scale(ranger_projectile, (64, 24))
+shuriken = pygame.image.load('assets/sprites/shuriken.png').convert_alpha()
+shuriken = pygame.transform.scale(shuriken, (48, 48))  # Escala o shuriken para um tamanho adequado
 
 # Configurações da spritesheet 
 frame_width = 32  # Largura da personagem
@@ -53,8 +120,9 @@ def setup_nivel(nivel):
         proj_speed = 16  # aumenta a velocidade no nível 3
 
     for i in range(quantidade):
+        espacamento = 100
         x = SCREEN_WIDTH - scaled_width - 50
-        y = 100 + i * (scaled_height + 150)
+        y = 100 + i * (scaled_height + espacamento) + 70
         rect = pygame.Rect(x, y, scaled_width, scaled_height)
         enemy_rangers.append({
             'x': x,
@@ -78,7 +146,12 @@ frames_missile = {
     'missile_esquerda': []
 }  # Dicionário para armazenar os frames do míssil
 
-# Carrega a spritesheet do cristal azul
+#Cria os frames do shuriken
+shuriken_frames = []
+for i in range(4):
+    shuriken_frames.append(pygame.transform.rotate(shuriken, 15*i))# Rotaciona o shuriken 
+
+# Carrega a os frames da spritesheet dos cristais
 blue = []
 for i in range(4):
     blue.append(pygame.image.load(f'assets/sprites/Crystal_Animation/Blue/blue_crystal_000{i}.png').convert_alpha())
@@ -169,8 +242,20 @@ def tela_final(result):
         text = font.render("Game Over! Pressione R para reiniciar ou ESC para sair.", True, (255, 0, 0))
     else:
         text = font.render("Você venceu! Pressione R para reiniciar ou ESC para sair.", True, (0, 255, 0))
+        tempo_final = time.time() - start_time
+        ranking = salvar_ranking(tempo_final)
+        print("--- %s seconds ---" % tempo_final)
     screen.fill((0, 0, 0))
     screen.blit(text, (SCREEN_WIDTH//2 - text.get_width()//2, SCREEN_HEIGHT//2 - text.get_height()//2))
+
+    # Exibe o ranking se venceu
+    if result == 'win':
+        font_ranking = pygame.font.SysFont(None, 32)
+        ranking = ler_ranking()
+        for i, tempo in enumerate(ranking):
+            rank_text = font_ranking.render(f"{i+1}º: {tempo:.2f} segundos", True, (255, 255, 0))
+            screen.blit(rank_text, (SCREEN_WIDTH//2 - 150, SCREEN_HEIGHT//2 + 40 + i*35))
+
     pygame.display.flip()
 
     waiting = True
@@ -186,15 +271,32 @@ def tela_final(result):
                     pygame.quit()
                     sys.exit()
 
+    waiting = True
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_r:
+                    waiting = False
+                elif event.key == pygame.K_ESCAPE:
+                    pygame.quit()
+                    sys.exit()
+
+tiles_solidos = ['P', 'F', 'K', 'J', 'I']
+
 # Loop principal do jogo
 def main_game():
-    DEBUG = True  # Flag para ativar/desativar o modo debug
+    DEBUG = False  # Flag para ativar/desativar o modo debug
     # Variáveis do jogo
     nivel = 1
     max_niveis = 3
     enemy_rangers, ranger_missile_speed = setup_nivel(nivel)
     ranger_missiles = []
     missiles = []
+    shurikens = []
+    shuriken_launchers = []
     vidas = 3
 
     cristal_ativo = False
@@ -217,15 +319,57 @@ def main_game():
     missile_speed = 10
     attack_animation_length = len(frames['attack_direita']) if len(frames['attack_direita']) > 0 else 1
     missile_animation_speed = 0.2  # Define a velocidade da animação do míssil
+    shuriken_speed = 8 # Velocidade do shuriken
     facing = 'direita'
     running = True
 
     clock = pygame.time.Clock()
 
+    # # Adiciona shurikens automáticas conforme o nível
+    # if nivel == 2:
+    #     for i in range(2):
+    #         shurikens.append({
+    #             'x': int((i+1) * SCREEN_WIDTH // 3),
+    #             'y': SCREEN_HEIGHT - shuriken_frames[0].get_height(),
+    #             'frame': 0,
+    #             'anim_counter': 0,
+    #             'rect': pygame.Rect(
+    #                 int((i+1) * SCREEN_WIDTH // 3),
+    #                 SCREEN_HEIGHT - shuriken_frames[0].get_height(),
+    #                 shuriken_frames[0].get_width(),
+    #                 shuriken_frames[0].get_height()
+    #             )
+    #         })
+    # elif nivel == 3:
+    #     for i in range(3):
+    #         shurikens.append({
+    #             'x': int((i+1) * SCREEN_WIDTH // 4),
+    #             'y': SCREEN_HEIGHT - shuriken_frames[0].get_height(),
+    #             'frame': 0,
+    #             'anim_counter': 0,
+    #             'rect': pygame.Rect(
+    #                 int((i+1) * SCREEN_WIDTH // 4),
+    #                 SCREEN_HEIGHT - shuriken_frames[0].get_height(),
+    #                 shuriken_frames[0].get_width(),
+    #                 shuriken_frames[0].get_height()
+    #             )
+    #         })
+    # enemy_rangers, ranger_missile_speed = setup_nivel(nivel)
+
     while running:
         # Limpa a tela
         screen.fill(BLACK)
-        
+
+        # Desenha o mapa de tiles
+        for row_idx, row in enumerate(mapa):
+            for col_idx, tile_char in enumerate(row):
+                if tile_char in tile_dict:
+                    tile_x, tile_y = tile_dict[tile_char]
+                    tile_rect = pygame.Rect(tile_x * 32, tile_y * 32, 32, 32)  # 32 é o tamanho original do tile no tileset
+                    tile_img = tileset.subsurface(tile_rect)
+                    tile_img = pygame.transform.scale(tile_img, (TILE_SIZE, TILE_SIZE))  # Escala para o novo tamanho
+                    screen.blit(tile_img, (col_idx * TILE_SIZE, row_idx * TILE_SIZE))
+
         # Eventos
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -250,21 +394,32 @@ def main_game():
         if not is_attacking:
             player_direction = f'stand_{facing}' # Padrão quando não está se movendo
             
-            if keys[pygame.K_w]:  # Cima
-                player_y -= player_speed
-                player_direction = f'up_{facing}'
-            if keys[pygame.K_s]:  # Baixo
-                player_y += player_speed
-                player_direction = f'down_{facing}'
-            if keys[pygame.K_a]:  # Esquerda
+            # Cima
+            if keys[pygame.K_w]:
+                new_y = player_y - player_speed
+                if not colisao_tile(player_x, new_y, mapa, tiles_solidos) and not colisao_tile(player_x + scaled_width - 1, new_y, mapa, tiles_solidos):
+                    player_y = new_y
+                    player_direction = f'up_{facing}'
+            # Baixo
+            if keys[pygame.K_s]:
+                new_y = player_y + player_speed
+                if not colisao_tile(player_x, new_y + scaled_height - 1, mapa, tiles_solidos) and not colisao_tile(player_x + scaled_width - 1, new_y + scaled_height - 1, mapa, tiles_solidos):
+                    player_y = new_y
+                    player_direction = f'down_{facing}'
+            # Esquerda
+            if keys[pygame.K_a]:
                 facing = 'esquerda'
-                player_x -= player_speed
-                player_direction = f'{facing}'
-            if keys[pygame.K_d]:  # Direita
+                new_x = player_x - player_speed
+                if not colisao_tile(new_x, player_y, mapa, tiles_solidos) and not colisao_tile(new_x, player_y + scaled_height - 1, mapa, tiles_solidos):
+                    player_x = new_x
+                    player_direction = f'{facing}'
+            # Direita
+            if keys[pygame.K_d]:
                 facing = 'direita'
-                player_x += player_speed
-                player_direction = f'{facing}'
-
+                new_x = player_x + player_speed
+                if not colisao_tile(new_x + scaled_width - 1, player_y, mapa, tiles_solidos) and not colisao_tile(new_x + scaled_width - 1, player_y + scaled_height - 1, mapa, tiles_solidos):
+                    player_x = new_x
+                    player_direction = f'{facing}'
         # Atualiza a posição do retângulo do jogador
         player_rect = pygame.Rect(player_x, player_y, scaled_width, scaled_height)
 
@@ -286,6 +441,31 @@ def main_game():
                 if len(frames[player_direction]) > 0:
                     current_frame = (current_frame + 1) % len(frames[player_direction])
         
+        for shuriken in shurikens[:]:
+            shuriken['y'] -= shuriken_speed  # Move para cima
+            shuriken['anim_counter'] += 0.2
+            if shuriken['anim_counter'] >= 1:
+                shuriken['anim_counter'] = 0
+                shuriken['frame'] = (shuriken['frame'] + 1) % len(shuriken_frames)
+            shuriken['rect'].y = shuriken['y']
+
+            # Remove se sair da tela
+            if shuriken['y'] < -shuriken_frames[0].get_height():
+                shurikens.remove(shuriken)
+                continue
+
+            # Remove se colidir com tile sólido
+            if colisao_tile(shuriken['x'], shuriken['y'], mapa, tiles_solidos):
+                shurikens.remove(shuriken)
+                continue
+
+            # Dano ao jogador
+            if shuriken['rect'].colliderect(player_rect):
+                vidas -= 1
+                shurikens.remove(shuriken)
+                if vidas <= 0:
+                    return 'gameover'
+                
         # Atualiza a animação dos rangers inimigos
         for ranger in enemy_rangers:
             if ranger['alive']:
@@ -366,6 +546,9 @@ def main_game():
             if DEBUG:
                 pygame.draw.rect(screen, (255, 0, 0), missile['rect'], 2)  # Caixa de colisão
 
+        # Desenhe as shurikens:
+        for shuriken in shurikens:
+            screen.blit(shuriken_frames[shuriken['frame']], (shuriken['x'], shuriken['y']))
         # Desenha o personagem
         if is_attacking:
             # Escolhe a animação de ataque baseada na direção
@@ -377,6 +560,8 @@ def main_game():
         screen.blit(player_img, (player_x, player_y))
 
         rangers_to_remove = []
+
+        # Desenha os rangers inimigos
         for ranger in enemy_rangers:
             if ranger['alive']:
                 ranger_attack_img = frames_ranger['attack_esquerda'][ranger['current_frame'] % len(frames_ranger['attack_esquerda'])]
@@ -412,6 +597,24 @@ def main_game():
             cristal_ativo = True
             cristal_tipo = 'green'
 
+        # Atualiza e desenha as shurikens automáticas    
+        if nivel >= 2:
+            for launcher in shuriken_launchers:
+                launcher['timer'] -= 1
+                if launcher['timer'] <= 0:
+                    shurikens.append({
+                        'x': launcher['x'],
+                        'y': SCREEN_HEIGHT - shuriken_frames[0].get_height(),
+                        'frame': 0,
+                        'anim_counter': 0,
+                        'rect': pygame.Rect(
+                            launcher['x'],
+                            SCREEN_HEIGHT - shuriken_frames[0].get_height(),
+                            shuriken_frames[0].get_width(),
+                            shuriken_frames[0].get_height()
+                        )
+                    })
+                    launcher['timer'] = 90  # 1,5 segundos a 60fps
         # Exibe e anima o cristal se ativo
         if cristal_ativo and not cristal_pego:
             cristal_anim_counter += 0.15
@@ -425,8 +628,7 @@ def main_game():
                 cristal_sprite = red[cristal_frame]
             elif cristal_tipo == 'green':
                 cristal_sprite = green[cristal_frame]
-            else:
-                cristal_sprite = blue[cristal_frame]  # fallback
+
             screen.blit(cristal_sprite, (cristal_x, cristal_y))
             cristal_rect = pygame.Rect(cristal_x, cristal_y, cristal_sprite.get_width(), cristal_sprite.get_height())
             if player_rect.colliderect(cristal_rect):
@@ -440,6 +642,23 @@ def main_game():
                     cristal_frame = 0
                     cristal_anim_counter = 0
                     cristal_tipo = None
+
+                    # Reinicializa as shurikens e lançadores
+                    shurikens.clear()
+                    shuriken_launchers.clear()
+                    shuriken_launchers = []
+                    if nivel == 2:
+                        for i in range(2):
+                            shuriken_launchers.append({
+                                'x': int((i+1) * SCREEN_WIDTH // 3),
+                                'timer': i * 45  # 1,5s = 90 frames a 60fps, começa defasado
+                            })
+                    elif nivel == 3:
+                        for i in range(3):
+                            shuriken_launchers.append({
+                                'x': int((i+1) * SCREEN_WIDTH // 4),
+                                'timer': i * 45  # defasagem entre lançamentos
+                            })
                 else:
                     return 'win'
             
