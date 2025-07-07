@@ -246,6 +246,16 @@ def tela_final(result):
         ranking = salvar_ranking(tempo_final)
         print("--- %s seconds ---" % tempo_final)
     screen.fill((0, 0, 0))
+    # Desenha o mapa de tiles
+    for row_idx, row in enumerate(mapa):
+        for col_idx, tile_char in enumerate(row):
+            if tile_char in tile_dict:
+                tile_x, tile_y = tile_dict[tile_char]
+                tile_rect = pygame.Rect(tile_x * 32, tile_y * 32, 32, 32)  # 32 é o tamanho original do tile no tileset
+                tile_img = tileset.subsurface(tile_rect)
+                tile_img = pygame.transform.scale(tile_img, (TILE_SIZE, TILE_SIZE))  # Escala para o novo tamanho
+                screen.blit(tile_img, (col_idx * TILE_SIZE, row_idx * TILE_SIZE))
+
     screen.blit(text, (SCREEN_WIDTH//2 - text.get_width()//2, SCREEN_HEIGHT//2 - text.get_height()//2))
 
     # Exibe o ranking se venceu
@@ -469,23 +479,37 @@ def main_game():
         # Atualiza a animação dos rangers inimigos
         for ranger in enemy_rangers:
             if ranger['alive']:
+                ranger['shoot_timer'] -= 1
+                if ranger['shoot_timer'] <= 0:
+                    ranger['attacking'] = True
+                    ranger['current_frame'] = 0
+                    ranger['animation_counter'] = 0
+                    ranger['shoot_timer'] = random.randint(60, 180)  # Reinicia temporizador
+
+            if ranger.get('attacking', False):
                 ranger['animation_counter'] += animation_speed
                 if ranger['animation_counter'] >= 1:
                     ranger['animation_counter'] = 0
-                    ranger['current_frame'] = (ranger['current_frame'] + 1) % len(frames_ranger['attack_esquerda'])
-                # Atualiza temporizador de tiro
-                ranger['shoot_timer'] -= 1
-                if ranger['shoot_timer'] <= 0:
-                    # Ranger atira um míssil para a esquerda
-                    missile_x = ranger['x']
-                    missile_y = ranger['y'] + scaled_height // 2 - missile_height // 6
-                    ranger_missiles.append({
-                        'x': missile_x,
-                        'y': missile_y,
-                        'rect': pygame.Rect(missile_x, missile_y, missile_width//4, missile_height//4),
-                        'frame': 0
-                    })
-                    ranger['shoot_timer'] = random.randint(60, 180)  # Reinicia temporizador
+                    ranger['current_frame'] += 1
+                    # Dispara a flecha 2 frames antes do fim
+                    if ranger['current_frame'] == len(frames_ranger['attack_esquerda']) - 2:
+                        missile_x = ranger['x']
+                        missile_y = ranger['y'] + scaled_height // 2 - missile_height // 6
+                        ranger_missiles.append({
+                            'x': missile_x,
+                            'y': missile_y,
+                            'rect': pygame.Rect(missile_x, missile_y, missile_width//4, missile_height//4),
+                            'frame': 0
+                        })
+                    # Finaliza ataque normalmente
+                    if ranger['current_frame'] >= len(frames_ranger['attack_esquerda']):
+                        ranger['attacking'] = False
+                        ranger['current_frame'] = 0
+                else:
+                    ranger['animation_counter'] += animation_speed
+                    if ranger['animation_counter'] >= 1:
+                        ranger['animation_counter'] = 0
+                        ranger['current_frame'] = (ranger['current_frame'] + 1) % len(frames_ranger['attack_esquerda'])
 
             else:
                 if ranger['death_frame'] < len(frames_ranger['morrer_esquerda']) - 1:
@@ -564,7 +588,10 @@ def main_game():
         # Desenha os rangers inimigos
         for ranger in enemy_rangers:
             if ranger['alive']:
-                ranger_attack_img = frames_ranger['attack_esquerda'][ranger['current_frame'] % len(frames_ranger['attack_esquerda'])]
+                if ranger.get('attacking', False):
+                    ranger_attack_img = frames_ranger['attack_esquerda'][ranger['current_frame'] % len(frames_ranger['attack_esquerda'])]
+                else:
+                    ranger_attack_img = frames_ranger['attack_esquerda'][ranger['current_frame'] % len(frames_ranger['attack_esquerda'])]
                 screen.blit(ranger_attack_img, (ranger['x'], ranger['y']))
                 if DEBUG:
                     pygame.draw.rect(screen, (0, 0, 255), ranger['rect'], 2)
@@ -686,7 +713,95 @@ def main_game():
     pygame.quit()
     sys.exit()
 
-# Loop externo para reiniciar o jogo
+def menu_inicial():
+    font = pygame.font.SysFont(None, 80)
+    font_small = pygame.font.SysFont(None, 50)
+    opcoes = ["Iniciar", "Ranking", "Sair"]
+    selecionado = 0
+
+    while True:
+        screen.fill((0, 0, 0))
+        # Desenha o mapa de tiles
+        for row_idx, row in enumerate(mapa):
+            for col_idx, tile_char in enumerate(row):
+                if tile_char in tile_dict:
+                    tile_x, tile_y = tile_dict[tile_char]
+                    tile_rect = pygame.Rect(tile_x * 32, tile_y * 32, 32, 32)  # 32 é o tamanho original do tile no tileset
+                    tile_img = tileset.subsurface(tile_rect)
+                    tile_img = pygame.transform.scale(tile_img, (TILE_SIZE, TILE_SIZE))  # Escala para o novo tamanho
+                    screen.blit(tile_img, (col_idx * TILE_SIZE, row_idx * TILE_SIZE))
+
+        titulo = font.render("MENU", True, (0, 255, 255))
+        screen.blit(titulo, (SCREEN_WIDTH//2 - titulo.get_width()//2, 120))
+
+        for i, opcao in enumerate(opcoes):
+            cor = (255, 255, 0) if i == selecionado else (255, 255, 255)
+            texto = font_small.render(opcao, True, cor)
+            screen.blit(texto, (SCREEN_WIDTH//2 - texto.get_width()//2, 300 + i*80))
+
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_UP:
+                    selecionado = (selecionado - 1) % len(opcoes)
+                elif event.key == pygame.K_DOWN:
+                    selecionado = (selecionado + 1) % len(opcoes)
+                elif event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER:
+                    if opcoes[selecionado] == "Iniciar":
+                        return "iniciar"
+                    elif opcoes[selecionado] == "Ranking":
+                        return "ranking"
+                    elif opcoes[selecionado] == "Sair":
+                        pygame.quit()
+                        sys.exit()
+
+def mostrar_ranking():
+    font = pygame.font.SysFont(None, 60)
+    font_small = pygame.font.SysFont(None, 40)
+    ranking = ler_ranking()
+    screen.fill((0, 0, 0))
+    # Desenha o mapa de tiles
+    for row_idx, row in enumerate(mapa):
+        for col_idx, tile_char in enumerate(row):
+            if tile_char in tile_dict:
+                tile_x, tile_y = tile_dict[tile_char]
+                tile_rect = pygame.Rect(tile_x * 32, tile_y * 32, 32, 32)  # 32 é o tamanho original do tile no tileset
+                tile_img = tileset.subsurface(tile_rect)
+                tile_img = pygame.transform.scale(tile_img, (TILE_SIZE, TILE_SIZE))  # Escala para o novo tamanho
+                screen.blit(tile_img, (col_idx * TILE_SIZE, row_idx * TILE_SIZE))
+
+    titulo = font.render("Ranking", True, (0, 255, 255))
+    screen.blit(titulo, (SCREEN_WIDTH//2 - titulo.get_width()//2, 120))
+    if ranking:
+        for i, tempo in enumerate(ranking):
+            texto = font_small.render(f"{i+1}º: {tempo:.2f} segundos", True, (255, 255, 0))
+            screen.blit(texto, (SCREEN_WIDTH//2 - texto.get_width()//2, 250 + i*50))
+    else:
+        texto = font_small.render("Nenhum tempo registrado.", True, (255, 255, 255))
+        screen.blit(texto, (SCREEN_WIDTH//2 - texto.get_width()//2, 300))
+    texto_voltar = font_small.render("Pressione ESC para voltar", True, (200, 200, 200))
+    screen.blit(texto_voltar, (SCREEN_WIDTH//2 - texto_voltar.get_width()//2, SCREEN_HEIGHT - 100))
+    pygame.display.flip()
+    esperando = True
+    while esperando:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                esperando = False
+
+# Loop externo:
 while True:
-    result = main_game()
-    tela_final(result)
+    escolha = menu_inicial()
+    if escolha == "iniciar":
+        result = main_game()
+        tela_final(result)
+    elif escolha == "ranking":
+        mostrar_ranking()
+    else:
+        break
