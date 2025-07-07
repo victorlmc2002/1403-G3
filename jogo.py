@@ -335,37 +335,6 @@ def main_game():
 
     clock = pygame.time.Clock()
 
-    # # Adiciona shurikens automáticas conforme o nível
-    # if nivel == 2:
-    #     for i in range(2):
-    #         shurikens.append({
-    #             'x': int((i+1) * SCREEN_WIDTH // 3),
-    #             'y': SCREEN_HEIGHT - shuriken_frames[0].get_height(),
-    #             'frame': 0,
-    #             'anim_counter': 0,
-    #             'rect': pygame.Rect(
-    #                 int((i+1) * SCREEN_WIDTH // 3),
-    #                 SCREEN_HEIGHT - shuriken_frames[0].get_height(),
-    #                 shuriken_frames[0].get_width(),
-    #                 shuriken_frames[0].get_height()
-    #             )
-    #         })
-    # elif nivel == 3:
-    #     for i in range(3):
-    #         shurikens.append({
-    #             'x': int((i+1) * SCREEN_WIDTH // 4),
-    #             'y': SCREEN_HEIGHT - shuriken_frames[0].get_height(),
-    #             'frame': 0,
-    #             'anim_counter': 0,
-    #             'rect': pygame.Rect(
-    #                 int((i+1) * SCREEN_WIDTH // 4),
-    #                 SCREEN_HEIGHT - shuriken_frames[0].get_height(),
-    #                 shuriken_frames[0].get_width(),
-    #                 shuriken_frames[0].get_height()
-    #             )
-    #         })
-    # enemy_rangers, ranger_missile_speed = setup_nivel(nivel)
-
     while running:
         # Limpa a tela
         screen.fill(BLACK)
@@ -385,19 +354,19 @@ def main_game():
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_e:
-                is_attacking = True
-                attack_frame = 0
-                # Adiciona um novo míssil quando o jogador ataca
-                missile_rect = pygame.Rect(player_x, player_y, 112, 32)  
-
-                missiles.append({
-                    'x': player_x,
-                    'y': player_y,
-                    'direction': facing,
-                    'frame': 0,
-                    'animation_counter': 0,
-                    'rect': missile_rect
-                })
+                if not is_attacking:  # Só permite atacar se não estiver atacando
+                    is_attacking = True
+                    attack_frame = 0
+                    # Adiciona um novo míssil quando o jogador ataca
+                    missile_rect = pygame.Rect(player_x, player_y, 112, 32)  
+                    missiles.append({
+                        'x': player_x,
+                        'y': player_y,
+                        'direction': facing,
+                        'frame': 0,
+                        'animation_counter': 0,
+                        'rect': missile_rect
+                    })
 
         # Movimento com WASD (desativado durante o ataque)
         keys = pygame.key.get_pressed()
@@ -458,6 +427,7 @@ def main_game():
                 shuriken['anim_counter'] = 0
                 shuriken['frame'] = (shuriken['frame'] + 1) % len(shuriken_frames)
             shuriken['rect'].y = shuriken['y']
+            shuriken['rect'].x = shuriken['x']
 
             # Remove se sair da tela
             if shuriken['y'] < -shuriken_frames[0].get_height():
@@ -629,19 +599,18 @@ def main_game():
             for launcher in shuriken_launchers:
                 launcher['timer'] -= 1
                 if launcher['timer'] <= 0:
+                    x_shuriken = random.randint(0, SCREEN_WIDTH - shuriken_frames[0].get_width())
+                    y_shuriken = SCREEN_HEIGHT - shuriken_frames[0].get_height()
                     shurikens.append({
-                        'x': launcher['x'],
-                        'y': SCREEN_HEIGHT - shuriken_frames[0].get_height(),
+                        'x': x_shuriken,
+                        'y': y_shuriken,
                         'frame': 0,
                         'anim_counter': 0,
                         'rect': pygame.Rect(
-                            launcher['x'],
-                            SCREEN_HEIGHT - shuriken_frames[0].get_height(),
-                            shuriken_frames[0].get_width(),
-                            shuriken_frames[0].get_height()
-                        )
-                    })
-                    launcher['timer'] = 90  # 1,5 segundos a 60fps
+                            x_shuriken, y_shuriken, shuriken_frames[0].get_width(), shuriken_frames[0].get_height()
+    )
+})
+                    launcher['timer'] = 90  # 1,5 segundos
         # Exibe e anima o cristal se ativo
         if cristal_ativo and not cristal_pego:
             cristal_anim_counter += 0.15
@@ -674,18 +643,18 @@ def main_game():
                     shurikens.clear()
                     shuriken_launchers.clear()
                     shuriken_launchers = []
-                    if nivel == 2:
-                        for i in range(2):
-                            shuriken_launchers.append({
-                                'x': int((i+1) * SCREEN_WIDTH // 3),
-                                'timer': i * 45  # 1,5s = 90 frames a 60fps, começa defasado
-                            })
-                    elif nivel == 3:
-                        for i in range(3):
-                            shuriken_launchers.append({
-                                'x': int((i+1) * SCREEN_WIDTH // 4),
-                                'timer': i * 45  # defasagem entre lançamentos
-                            })
+                if nivel == 2:
+                    for i in range(2):
+                        shuriken_launchers.append({
+                            'x': int((i+1) * SCREEN_WIDTH // 3),
+                            'timer': i * 45
+                        })
+                elif nivel == 3:
+                    for i in range(3):
+                        shuriken_launchers.append({
+                            'x': int((i+1) * SCREEN_WIDTH // 4),
+                            'timer': i * 45
+                        })
                 else:
                     return 'win'
             
@@ -769,7 +738,7 @@ def mostrar_ranking():
         for col_idx, tile_char in enumerate(row):
             if tile_char in tile_dict:
                 tile_x, tile_y = tile_dict[tile_char]
-                tile_rect = pygame.Rect(tile_x * 32, tile_y * 32, 32, 32)  # 32 é o tamanho original do tile no tileset
+                tile_rect = pygame.Rect(tile_x * 32, tile_y * 32, 32, 32)
                 tile_img = tileset.subsurface(tile_rect)
                 tile_img = pygame.transform.scale(tile_img, (TILE_SIZE, TILE_SIZE))  # Escala para o novo tamanho
                 screen.blit(tile_img, (col_idx * TILE_SIZE, row_idx * TILE_SIZE))
