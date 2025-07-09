@@ -58,7 +58,7 @@ pygame.init()
 SCREEN_WIDTH = 1500
 SCREEN_HEIGHT = 950
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Movimento com Spritesheet - WASD")
+pygame.display.set_caption("Crystal Hunt")
 
 TILE_SIZE = 64  # Tamanho do tile
 tileset = pygame.image.load('assets/sprites/tileset.png').convert_alpha()
@@ -87,6 +87,8 @@ BLACK = (0, 0, 0)
 SCALE_FACTOR = 2.5 
 
 # Carrega a spritesheets
+title = pygame.image.load('assets/sprites/title.png').convert_alpha()
+title = pygame.transform.scale(title, (title.get_width()/3, title.get_height()/3))  # Escala o título para preencher a tela
 spritesheet = pygame.image.load('assets/sprites/player.png')
 ranger = pygame.image.load('assets/sprites/ranger.png')
 missile = pygame.image.load('assets/sprites/missile.png')
@@ -690,7 +692,6 @@ def main_game():
     sys.exit()
 
 def menu_inicial():
-    font = pygame.font.SysFont(None, 80)
     font_small = pygame.font.SysFont(None, 50)
     opcoes = ["Iniciar", "Ranking", "Sair"]
     selecionado = 0
@@ -707,13 +708,13 @@ def menu_inicial():
                     tile_img = pygame.transform.scale(tile_img, (TILE_SIZE, TILE_SIZE))  # Escala para o novo tamanho
                     screen.blit(tile_img, (col_idx * TILE_SIZE, row_idx * TILE_SIZE))
 
-        titulo = font.render("Archer", True, (0, 255, 255))
-        screen.blit(titulo, (SCREEN_WIDTH//2 - titulo.get_width()//2, 120))
+        # Desenha o título
+        screen.blit(title, (SCREEN_WIDTH//2 -title.get_width()//2, -100))
 
         for i, opcao in enumerate(opcoes):
             cor = (255, 255, 0) if i == selecionado else (255, 255, 255)
             texto = font_small.render(opcao, True, cor)
-            screen.blit(texto, (SCREEN_WIDTH//2 - texto.get_width()//2, 300 + i*80))
+            screen.blit(texto, (SCREEN_WIDTH//2 - texto.get_width()//2, 350 + i*80))
 
         pygame.display.flip()
 
