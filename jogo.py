@@ -294,7 +294,7 @@ def tela_final(result):
                     pygame.quit()
                     sys.exit()
 
-tiles_solidos = ['P', 'F', 'K', 'J', 'I']
+tiles_solidos = ['P', 'F', 'K', 'J', 'I', 'H']
 
 # Loop principal do jogo
 def main_game():
@@ -420,7 +420,7 @@ def main_game():
                 if len(frames[player_direction]) > 0:
                     current_frame = (current_frame + 1) % len(frames[player_direction])
         
-        for shuriken in shurikens[:]:
+        for shuriken in shurikens:
             shuriken['y'] -= shuriken_speed  # Move para cima
             shuriken['anim_counter'] += 0.2
             if shuriken['anim_counter'] >= 1:
@@ -489,14 +489,18 @@ def main_game():
                         ranger['death_frame'] += 1
 
         # Atualiza mísseis dos rangers
-        for missile in ranger_missiles[:]:
+        for missile in ranger_missiles:
             missile['x'] -= ranger_missile_speed  # Usa a velocidade do nível
             missile['rect'].x = missile['x']
+            # Verifica colisão com tile sólido
+            if colisao_tile(missile['x'], missile['y'], mapa, tiles_solidos):
+                ranger_missiles.remove(missile)
+                continue
             if missile['x'] < -missile_width:
                 ranger_missiles.remove(missile)
 
         # Atualiza os mísseis
-        for missile_data in missiles[:]:
+        for missile_data in missiles:
             # Atualiza a posição do míssil
             if missile_data['direction'] == 'direita':
                 missile_data['x'] += missile_speed
@@ -576,7 +580,7 @@ def main_game():
             enemy_rangers.remove(ranger)
 
         # Verifica colisão dos projéteis dos rangers com o jogador
-        for missile in ranger_missiles[:]:
+        for missile in ranger_missiles:
             if missile['rect'].colliderect(player_rect):
                 vidas -= 1
                 ranger_missiles.remove(missile)
@@ -643,6 +647,10 @@ def main_game():
                     shurikens.clear()
                     shuriken_launchers.clear()
                     shuriken_launchers = []
+
+                else:
+                    return 'win'
+                
                 if nivel == 2:
                     for i in range(2):
                         shuriken_launchers.append({
@@ -655,8 +663,7 @@ def main_game():
                             'x': int((i+1) * SCREEN_WIDTH // 4),
                             'timer': i * 45
                         })
-                else:
-                    return 'win'
+
             
         # Desenha as vidas
         for i in range(vidas):
@@ -700,7 +707,7 @@ def menu_inicial():
                     tile_img = pygame.transform.scale(tile_img, (TILE_SIZE, TILE_SIZE))  # Escala para o novo tamanho
                     screen.blit(tile_img, (col_idx * TILE_SIZE, row_idx * TILE_SIZE))
 
-        titulo = font.render("MENU", True, (0, 255, 255))
+        titulo = font.render("Archer", True, (0, 255, 255))
         screen.blit(titulo, (SCREEN_WIDTH//2 - titulo.get_width()//2, 120))
 
         for i, opcao in enumerate(opcoes):
